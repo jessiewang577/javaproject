@@ -1,4 +1,4 @@
- import express from 'express';
+  import express from 'express';
   import http from 'http';
   import { Server } from 'socket.io';
   import cors from 'cors';
@@ -6,6 +6,8 @@
   import morgan from 'morgan';
   import dotenv from 'dotenv';
   import db from './config/database.js';
+  import uploadRoutes from './routes/upload.js';      // 新增
+  import emojiRoutes from './routes/emoji.js';        // 新增
 
   // 路由导入
   import authRoutes from './routes/auth.js';
@@ -27,12 +29,34 @@
   });
 
   // 中间件
-  app.use(helmet());  // 安全头部
-  app.use(cors());    // 跨域
+ // CORS 配置（必须在 helmet 之前）
+  app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
+
+  // Helmet 安全头部（允许跨域资源）
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  }));
+
+  app.use(morgan('dev'));
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  // 静态文件服务（添加 CORS 头）
+  app.use('/uploads', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');    
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  }, express.static('uploads'));
   app.use(morgan('dev'));  // 日志
   app.use(express.json());  // 解析 JSON
   app.use(express.urlencoded({ extended: true }));  // 解析 URL 编码
-  app.use('/uploads', express.static('uploads'));  // 静态文件
+  
 
   // 测试路由
   app.get('/', (req, res) => {
@@ -66,11 +90,23 @@
 
   // API 路由
   app.use('/api/auth', authRoutes);
-  app.use('/api/user', userRoutes);
+  app.use('/api/users', userRoutes);
   app.use('/api/messages', messageRoutes);
+  app.use('/api/upload', uploadRoutes);       // 新增
+  app.use('/api/emojis', emojiRoutes);        // 新增：包含 /api/emojis 和 /api/emojis/stickers
 
   // WebSocket 初始化
   setupWebSocket(io);
+
+  io.engine.on("connection_error", (err) => {
+    console.error('WebSocket 连接错误:', err);
+  });
+
+  // 监控连接数
+  setInterval(() => {
+    const socketsCount = io.engine.clientsCount;
+    console.log(`� 当前 WebSocket 连接数: ${socketsCount}`);
+  }, 60000); // 每分钟打印一次
 
   // 404 处理
   app.use((req, res) => {

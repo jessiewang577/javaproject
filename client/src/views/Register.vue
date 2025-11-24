@@ -64,8 +64,12 @@
 
   <script setup>
   import { reactive, ref } from 'vue';
+  import { useRouter } from 'vue-router';
   import { ElMessage } from 'element-plus';
-  import { User, Message, Lock } from '@element-plus/icons-vue';       
+  import { User, Message, Lock } from '@element-plus/icons-vue';
+  import { register } from '@/api/auth';
+
+  const router = useRouter();
 
   const registerForm = reactive({
     username: '',
@@ -76,13 +80,45 @@
 
   const loading = ref(false);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
+    // 验证表单
+    if (!registerForm.username || !registerForm.email || !registerForm.password) {
+      ElMessage.warning('请填写必填项（用户名、邮箱、密码）');
+      return;
+    }
+
+    if (registerForm.password.length < 6) {
+      ElMessage.warning('密码至少需要6位');
+      return;
+    }
+
     loading.value = true;
 
-    setTimeout(() => {
+    try {
+      // 调用注册 API
+      const response = await register({
+        username: registerForm.username,
+        email: registerForm.email,
+        password: registerForm.password,
+        nickname: registerForm.nickname || registerForm.username
+      });
+
+      if (response.success) {
+        ElMessage.success('注册成功！请登录');
+
+        // 跳转到登录页面
+        setTimeout(() => {
+          router.push('/login');
+        }, 1000);
+      } else {
+        ElMessage.error(response.message || '注册失败');
+      }
+    } catch (error) {
+      console.error('注册失败:', error);
+      ElMessage.error(error.response?.data?.message || '注册失败，请重试');
+    } finally {
       loading.value = false;
-      ElMessage.info('⏳ 注册功能敬请期待...');
-    }, 1000);
+    }
   };
   </script>
 

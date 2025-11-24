@@ -55,11 +55,16 @@
     </div>
   </template>
 
-  <script setup>
+   <script setup>
   import { reactive, ref } from 'vue';
+  import { useRouter } from 'vue-router';
   import { ElMessage } from 'element-plus';
-  import { Connection, Message, Lock } from
-  '@element-plus/icons-vue';
+  import { Connection, Message, Lock } from '@element-plus/icons-vue';
+  import { useUserStore } from '@/stores/user';
+  import { login, getCurrentUser } from '@/api/auth';
+
+  const router = useRouter();
+  const userStore = useUserStore();
 
   const loginForm = reactive({
     email: '',
@@ -68,17 +73,51 @@
 
   const loading = ref(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    // 验证表单
+    if (!loginForm.email || !loginForm.password) {
+      ElMessage.warning('请输入邮箱和密码');
+      return;
+    }
+
     loading.value = true;
 
-    setTimeout(() => {
+    try {
+      // 调用登录 API
+      const response = await login({
+        email: loginForm.email,
+        password: loginForm.password
+      });
+
+      if (response.success) {
+        // 保存 token
+        userStore.setToken(response.token);
+
+        // 获取用户信息
+        const userResponse = await getCurrentUser();
+        if (userResponse.success) {
+          userStore.setUser(userResponse.user);
+          console.log('✅ 用户信息已保存:', userResponse.user);
+        }
+
+        ElMessage.success('登录成功！');
+        router.push('/chat');
+
+        // 跳转到聊天页面
+        router.push('/chat');
+      } else {
+        ElMessage.error(response.message || '登录失败');
+      }
+    } catch (error) {
+      console.error('登录失败:', error);
+      ElMessage.error(error.response?.data?.message || '登录失败，请重试');
+    } finally {
       loading.value = false;
-      ElMessage.info('⏳ 登录功能敬请期待...');
-    }, 1000);
+    }
   };
 
   const handleGoogleLogin = () => {
-    ElMessage.warning('� Google 登录功能开发中！');
+    ElMessage.warning('Google 登录功能开发中！');
   };
   </script>
 

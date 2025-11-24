@@ -1,77 +1,31 @@
 import express from 'express';
-  import { authenticateToken } from '../middlewares/auth.js';
-  import User from '../models/User.js';
+import { authenticateToken } from '../middlewares/auth.js';
+import {
+    getProfile,
+    updateProfile,
+    getOnlineUsers,
+    getRoomUsers
+  } from '../controllers/userController.js';
 
   const router = express.Router();
 
   // 所有路由都需要认证
   router.use(authenticateToken);
 
-  /**
-   * 获取当前用户信息
-   * GET /api/user/profile
-   */
-  router.get('/profile', async (req, res) => {
-    try {
-      // req.user 由 authenticateToken 中间件提供
-      const user = await User.findById(req.user.id);
+  // 获取当前用户信息
+  // GET /api/users/profile
+  router.get('/profile', getProfile);
 
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: '用户不存在'
-        });
-      }
+  // 更新用户个人资料
+  // PUT /api/users/profile
+  router.put('/profile', updateProfile);
 
-      res.json({
-        success: true,
-        user
-      });
-    } catch (error) {
-      console.error('获取用户信息错误:', error);
-      res.status(500).json({
-        success: false,
-        message: '服务器错误',
-        error: error.message
-      });
-    }
-  });
+  // 获取在线用户列表
+  // GET /api/users/online
+  router.get('/online', getOnlineUsers);
 
-  /**
-   * 更新用户个人资料
-   * PUT /api/user/profile
-   */
-  router.put('/profile', async (req, res) => {
-    try {
-      const { nickname, age, bio, avatar_url } = req.body;
-      const userId = req.user.id;
-
-      // 构建更新对象
-      const updates = {};
-      if (nickname !== undefined) updates.nickname = nickname;
-      if (age !== undefined) updates.age = age;
-      if (bio !== undefined) updates.bio = bio;
-      if (avatar_url !== undefined) updates.avatar_url = avatar_url;
-
-      // 更新用户信息
-      await User.update(userId, updates);
-
-      // 获取更新后的用户信息
-      const updatedUser = await User.findById(userId);
-
-      res.json({
-        success: true,
-        message: '个人资料更新成功',
-        user: updatedUser
-      });
-    } catch (error) {
-      console.error('更新用户信息错误:', error);
-      res.status(500).json({
-        success: false,
-        message: '服务器错误',
-        error: error.message
-      });
-    }
-  });
+  // 获取房间内用户
+  // GET /api/users/room/:roomId
+  router.get('/room/:roomId', getRoomUsers);
 
   export default router;
