@@ -34,6 +34,7 @@
         :room-id="chatStore.currentRoom.roomId"
         :show-emojis="true"           
         :show-reaction-emojis="true"  
+        :textarea-action-enabled="true" 
         height="calc(100vh - 100px)"
         @fetch-messages="handleFetchMessages"
         @send-message="handleSendMessage"
@@ -42,35 +43,31 @@
         @typing-message="handleTyping"
         @send-message-reaction="handleSendReaction"
         @open-file="handleOpenFile"
+        @textarea-action-handler="openStickerPicker" 
       >
+      <!-- Sticker 按钮 -->
+      <template #custom-action-icon>
+          <!-- <StickerPicker @select-sticker="handleSelectGif" -->
+        <div style="font-size: 20px;" title="发送贴纸">STICKER</div>
+      </template>
+
       </vue-advanced-chat>
 
-          <!-- ✨ 使用 custom-action-icon 插槽添加 Sticker 按钮 -->
-          <div class="custom-sticker-btn">
-            <el-popover
-              placement="top"
-              :width="430"
-              trigger="click"
-              popper-class="giphy-popover"
-            >
-              <template #reference>
-                <el-button
-                  circle
-                  :icon="Picture"
-                  title="发送表情包"
-                />
-              </template>
-              <GiphyPicker @select-gif="handleSelectGif" />
-            </el-popover>
-          </div>
+       <!-- Sticker 选择器弹窗 -->
+      <el-dialog v-model="showStickerDialog" width="450px" title="选择贴纸">
+        <GiphyPicker @select-gif="handleSelectGif" />
+      </el-dialog>
       
     </div>
   </template>
 
   <script setup>
-  import { Picture } from '@element-plus/icons-vue'
-  import GiphyPicker from '@/components/GiphyPicker.vue'
-  import axios from 'axios';
+  import GiphyPicker from '@/components/GiphyPicker.vue'  // 导入 GiphyPicker
+  import { ref } from 'vue'  // 如果还没导入
+  import StickerPicker from '@/components/StickerPicker.vue'  
+  // import { Picture } from '@element-plus/icons-vue'
+  // import GiphyPicker from '@/components/GiphyPicker.vue'
+  // import axios from 'axios';
   import { ElMessage } from 'element-plus';
   import { onMounted, onUnmounted } from 'vue';
   import { useRouter } from 'vue-router';
@@ -85,10 +82,17 @@
   import { getCurrentUser } from '@/api/auth';
   import request from '@/utils/request';
 
+  const stickerIcon = '❤️'
   const router = useRouter();
   const chatStore = useChatStore();
   const userStore = useUserStore();
+  const showStickerDialog = ref(false)
 
+  // 添加打开 Sticker 选择器的方法
+  const openStickerPicker = () => {
+    console.log('� 打开 Sticker 选择器')
+    showStickerDialog.value = true
+  }
   // 使用 WebSocket Composable
   const {
     isConnected,
@@ -141,6 +145,43 @@
       joinRoom('1');
     }, 500);
   });
+
+  // ⭐⭐⭐ 在这里添加替换图标的代码 ⭐⭐⭐
+    const replaceStickerIcon = () => {
+      const btn =
+  document.querySelector('.vac-svg-button');       
+      if (btn) {
+        btn.innerHTML = '';
+
+        const heart =
+  document.createElement('div');
+        heart.textContent = '❤️';
+        heart.style.fontSize = '20px';
+        heart.style.cursor = 'pointer';
+        heart.style.display = 'flex';
+        heart.style.alignItems = 'center';
+        heart.style.justifyContent = 'center';     
+        heart.style.width = '24px';
+        heart.style.height = '24px';
+        heart.style.transition = 'transform 0.2s';
+
+        heart.addEventListener('mouseenter', ()  => {
+          heart.style.transform = 'scale(1.2)';    
+        });
+        heart.addEventListener('mouseleave', ()  => {
+          heart.style.transform = 'scale(1)';      
+        });
+
+        btn.appendChild(heart);
+      //   console.log('✅ Sticker 图标已替换为 ❤️');
+      // } else {
+      //   console.warn('⚠️ 未找到按钮，3秒后重试...');
+      //   setTimeout(replaceStickerIcon, 3000);      
+      }
+    };
+
+    setTimeout(replaceStickerIcon, 1000);
+  
 
   // 组件卸载时清理
   onUnmounted(() => {
@@ -340,6 +381,38 @@
     }
   }; 
 
+ /**
+   * 处理添加 Emoji 到输入框
+   */
+  const handleAddEmoji = (emojiUnicode) => {
+    console.log('� Chat.vue 收到 emoji:', emojiUnicode)  // 添加这行
+    // 获取输入框元素
+    const textarea = document.querySelector('#roomTextarea')  
+    console.log('� 找到的输入框:', textarea)  // 添加这行    
+
+    if (textarea) {
+      // 在光标位置插入 emoji
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const text = textarea.value
+
+      textarea.value = text.substring(0, start) + emojiUnicode    
+   + text.substring(end)
+
+      // 触发 input 事件，让 vue-advanced-chat 感知到变化
+      textarea.dispatchEvent(new Event('input', { bubbles:        
+  true }))
+
+      // 恢复光标位置
+      const newPosition = start + emojiUnicode.length
+      textarea.setSelectionRange(newPosition, newPosition)        
+      textarea.focus()
+      console.log('✅ Emoji 已插入')  // 添加这行
+    }else {
+      console.warn('⚠️ 未找到输入框，无法插入 emoji')  // 添加这行
+    }
+  };
+
   /**
    * 编辑消息
    */
@@ -442,5 +515,26 @@
 
   .online-count .el-icon {
     font-size: 18px;
+  }
+
+    /* 使用 deep 穿透 */
+  :deep(.vac-svg-button svg) {
+    display: none !important;
+  }
+
+  :deep(.vac-svg-button::before) {
+    content: '❤️';
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  :deep(.vac-svg-button:hover::before) {
+    transform: scale(1.2);
   }
   </style>
